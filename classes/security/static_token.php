@@ -30,7 +30,7 @@ final class static_token {
             return null;
         }
         // Reject invalid or duplicated scopes instead of silently granting a subset.
-        $requested = preg_split('/\\s+/', trim($scopes), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        $requested = preg_split('/\s+/', trim($scopes), -1, PREG_SPLIT_NO_EMPTY) ?: [];
         $parsed = scope::parse($scopes);
         if (!$parsed || count($parsed) !== count($requested)) {
             return null;
