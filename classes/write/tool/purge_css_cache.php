@@ -117,7 +117,7 @@ final class purge_css_cache extends base_tool {
         return [
             'scope' => 'theme_css',
             'effect' => 'Invalidates generated CSS and theme asset caches for all users without purging unrelated caches.',
-            'requires_confirmation' => true,
+            'requires_confirmation' => false,
         ];
     }
 
