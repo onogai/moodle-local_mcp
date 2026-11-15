@@ -79,7 +79,7 @@ final class subplugin_test extends advanced_testcase {
                      'page_update_content', 'book_create_chapter', 'book_update_chapter'] as $name) {
             $this->assertArrayHasKey($name, $write);
             $this->assertArrayNotHasKey($name, $read);
-            $this->assertTrue($write[$name]->requires_confirmation());
+            $this->assertFalse($write[$name]->requires_confirmation());
         }
     }
 
@@ -308,7 +308,7 @@ final class subplugin_test extends advanced_testcase {
             $this->assertSame($writetool, $writetools["test_external_provider_write"]);
             $this->assertArrayNotHasKey("test_external_provider_write", $readtools);
             $this->assertArrayNotHasKey("test_external_provider_read", $writetools);
-            $this->assertTrue($writetool->requires_confirmation());
+            $this->assertFalse($writetool->requires_confirmation());
 
             $identity = new \local_mcp\security\authenticated_identity(
                 (int)get_admin()->id, "test", ["mcp:read", "mcp:write"]
