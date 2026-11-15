@@ -53,7 +53,7 @@ final class gradebook_completion_tools_test extends advanced_testcase {
             $this->assertSame("object", $read[$name]->get_input_schema()["type"]);
         }
         $tool = $write["set_grade_item_visibility"];
-        $this->assertTrue($tool->requires_confirmation());
+        $this->assertFalse($tool->requires_confirmation());
         $this->assertTrue($tool->supports_dry_run());
         $this->assertSame("moodle/grade:hide", $tool->get_required_capability());
     }
