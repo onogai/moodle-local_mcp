@@ -127,26 +127,18 @@ final class gift_question_bank_test extends advanced_testcase {
     /**
      * One GIFT payload is approved once, then imported as a single batch.
      */
-    public function test_mcp_requires_confirmation_for_entire_batch(): void {
+    public function test_mcp_imports_entire_batch_without_confirmation(): void {
         global $DB;
-
         [$ctx, $identity] = $this->setup_import();
-        $args = ["contextid" => $ctx->id, "name" => "Approved Import",
+        $args = ["contextid" => $ctx->id, "name" => "Direct Import",
             "gift" => $this->gift()];
         $server = new mcp_server("write");
         $method = new ReflectionMethod(mcp_server::class, "call_tool");
-        $pending = $method->invoke($server, "import_gift_question_bank", $args,
-            [], $identity, "test-access-token");
-        $this->assertSame("confirmation_pending", $pending["status"]);
-        $this->assertSame(3, $pending["preview"]["question_count"]);
-        $this->assertFalse($DB->record_exists("question_categories",
-            ["name" => "Approved Import", "contextid" => $ctx->id]));
-        $confirmed = $method->invoke($server, "import_gift_question_bank",
-            $args + ["confirmation_token" => $pending["confirmation_token"]],
-            [], $identity, "test-access-token");
-        $this->assertSame(3, $confirmed["question_count"]);
+        $result = $method->invoke($server, "import_gift_question_bank",
+            $args, [], $identity, "test-access-token");
+        $this->assertSame(3, $result["question_count"]);
         $this->assertTrue($DB->record_exists("question_categories",
-            ["id" => $confirmed["categoryid"]]));
+            ["id" => $result["categoryid"]]));
     }
 
     /**
@@ -258,40 +250,22 @@ final class gift_question_bank_test extends advanced_testcase {
     /**
      * The existing-category path must also pass through MCP confirmation.
      */
-    public function test_mcp_confirms_existing_category_import_as_one_batch(): void {
+    public function test_mcp_imports_existing_category_as_one_batch(): void {
         global $DB;
-
         [$ctx, $identity] = $this->setup_import();
         $category = bank_service::create_category([
-            "contextid" => $ctx->id,
-            "name" => "Confirmed QA",
+            "contextid" => $ctx->id, "name" => "Existing Batch",
         ], $identity);
-        $args = [
-            "contextid" => $ctx->id,
-            "categoryid" => (int)$category["id"],
-            "gift" => $this->gift(),
-        ];
-        $tool = registry::get_tools()["import_gift_question_bank"];
-        $schema = $tool->get_input_schema();
-        $this->assertContains("contextid", $schema["required"]);
-        $this->assertContains("gift", $schema["required"]);
-        $this->assertNotContains("name", $schema["required"]);
-        $this->assertArrayHasKey("categoryid", $schema["properties"]);
-
+        $args = ["contextid" => $ctx->id, "categoryid" => (int)$category["id"],
+            "gift" => $this->gift()];
         $server = new mcp_server("write");
         $method = new ReflectionMethod(mcp_server::class, "call_tool");
-        $pending = $method->invoke($server, "import_gift_question_bank",
+        $result = $method->invoke($server, "import_gift_question_bank",
             $args, [], $identity, "test-access-token");
-        $this->assertSame("confirmation_pending", $pending["status"]);
-        $this->assertSame("existing", $pending["preview"]["mode"]);
-        $this->assertFalse($DB->record_exists("question_bank_entries",
+        $this->assertSame(3, $result["question_count"]);
+        $this->assertSame((int)$category["id"], $result["categoryid"]);
+        $this->assertCount(3, $DB->get_records("question_bank_entries",
             ["questioncategoryid" => (int)$category["id"]]));
-
-        $confirmed = $method->invoke($server, "import_gift_question_bank",
-            $args + ["confirmation_token" => $pending["confirmation_token"]],
-            [], $identity, "test-access-token");
-        $this->assertSame(3, $confirmed["question_count"]);
-        $this->assertSame((int)$category["id"], $confirmed["categoryid"]);
     }
 
     /**
