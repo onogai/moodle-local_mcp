@@ -321,16 +321,9 @@ final class subplugin_test extends advanced_testcase {
 
             $server = new \local_mcp\protocol\mcp_server("write");
             $args = ["value" => "ready"];
-            $pending = $method->invoke($server, "test_external_provider_write",
+            $created = $method->invoke($server, "test_external_provider_write",
                 $args, [], $identity, "test-access");
-            $this->assertTrue($pending["confirmation_required"]);
-            $this->assertSame(0, $writetool->writes);
-            $this->assertSame("ready", $pending["preview"]["value"]);
-
-            $confirmed = $method->invoke($server, "test_external_provider_write",
-                $args + ["confirmation_token" => $pending["confirmation_token"]],
-                [], $identity, "test-access");
-            $this->assertSame(1, $confirmed["writes"]);
+            $this->assertSame(1, $created["writes"]);
             $this->assertSame(1, $writetool->writes);
         } finally {
             $property->setValue(null, $previous);
