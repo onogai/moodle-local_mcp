@@ -46,7 +46,7 @@ abstract class base_tool implements tool_interface {
      * @return bool Return value.
      */
     public function requires_confirmation(): bool {
-        return true;
+        return false;
     }
 
     /**
