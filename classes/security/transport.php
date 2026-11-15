@@ -35,7 +35,7 @@ final class transport {
      *
      * @return void Return value.
      */
-    public static function require_secure(): void {
+    public static function require_secure(bool $mcpendpoint = false): void {
         global $CFG;
         $parts = parse_url($CFG->wwwroot);
         $scheme = strtolower((string)($parts['scheme'] ?? ''));
@@ -44,6 +44,11 @@ final class transport {
             || str_ends_with($host, '.localhost')
             || str_ends_with($host, '.test');
         if ($scheme !== 'https' && !$local) {
+            // Previa homelab: permit plain HTTP only for MCP endpoints when explicitly enabled.
+            // OAuth endpoints still require HTTPS; do not weaken their redirect/token transport.
+            if ($mcpendpoint && getenv('PREVIA_MCP_ALLOW_HTTP') === '1') {
+                return;
+            }
             throw new api_exception('https_required', 400);
         }
     }
