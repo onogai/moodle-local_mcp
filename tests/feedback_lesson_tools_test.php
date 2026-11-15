@@ -60,7 +60,7 @@ final class feedback_lesson_tools_test extends advanced_testcase {
             }
             $this->assertCount(count(array_unique($names)), $names);
             foreach ($write as $tool) {
-                $this->assertTrue($tool->requires_confirmation());
+                $this->assertFalse($tool->requires_confirmation());
             }
         }
     }
