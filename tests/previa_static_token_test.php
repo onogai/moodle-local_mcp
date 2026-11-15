@@ -25,6 +25,9 @@ namespace local_mcp;
 use advanced_testcase;
 use local_mcp\security\scope;
 use local_mcp\security\static_token;
+use local_mcp\security\token_resolver;
+use local_mcp\security\transport;
+use local_mcp\exception\api_exception;
 
 /**
  * @covers \local_mcp\security\static_token
