@@ -29,8 +29,10 @@ final class static_token {
         if (!hash_equals($secret, $supplied)) {
             return null;
         }
+        // Reject invalid or duplicated scopes instead of silently granting a subset.
+        $requested = preg_split('/\\s+/', trim($scopes), -1, PREG_SPLIT_NO_EMPTY) ?: [];
         $parsed = scope::parse($scopes);
-        if (!$parsed) {
+        if (!$parsed || count($parsed) !== count($requested)) {
             return null;
         }
         return new authenticated_identity((int)$userid, 'static', $parsed);
