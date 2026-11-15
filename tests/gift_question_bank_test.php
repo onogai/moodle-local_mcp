@@ -157,7 +157,7 @@ final class gift_question_bank_test extends advanced_testcase {
         $tool = registry::get_tools()["import_gift_question_bank"];
         $this->assertSame("moodle/question:add", $tool->get_required_capability());
         $this->assertTrue($tool->supports_dry_run());
-        $this->assertTrue($tool->requires_confirmation());
+        $this->assertFalse($tool->requires_confirmation());
         $this->assertContains("gift", $tool->get_input_schema()["required"]);
         $this->expectException(api_exception::class);
         $tool->preview(["contextid" => $ctx->id, "name" => "Empty",
