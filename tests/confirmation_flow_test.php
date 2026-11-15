@@ -91,7 +91,7 @@ final class confirmation_flow_test extends advanced_testcase {
                 ['confirmation_token' => 'mcp_confirm_nonexistent'],
                 [], $identity, 'test-token-approval');
             $this->fail('Destructive writes must reject invalid confirmation tokens.');
-        } catch (\\local_mcp\\exception\\api_exception $e) {
+        } catch (\local_mcp\exception\api_exception $e) {
             $this->assertSame('confirmation_expired', $e->machinecode);
             $this->assertSame(409, $e->httpstatus);
         }
