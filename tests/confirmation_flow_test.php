@@ -40,57 +40,30 @@ final class confirmation_flow_test extends advanced_testcase {
      *
      * @return void
      */
-    public function test_write_requires_explicit_second_call_with_bound_token(): void {
+    public function test_regular_write_executes_immediately(): void {
         global $DB;
-
         $this->resetAfterTest();
         $this->setAdminUser();
         $identity = new authenticated_identity((int)get_admin()->id, 'test', ['mcp:write']);
-        $server = new mcp_server('write');
         $method = new ReflectionMethod(mcp_server::class, 'call_tool');
-        $args = ['name' => 'MCP Pending Approval Test', 'parentid' => 0];
-        $access = 'test-access-token';
-
-        $pending = $method->invoke($server, 'create_category', $args, [], $identity, $access);
-        $this->assertTrue($pending['confirmation_required']);
-        $this->assertSame('confirmation_pending', $pending['status']);
-        $this->assertSame('create_category', $pending['tool']);
-        $this->assertSame('MCP Pending Approval Test', $pending['preview']['name']);
-        $this->assertStringStartsWith('mcp_confirm_', $pending['confirmation_token']);
-        $this->assertFalse($DB->record_exists('course_categories', [
-            'name' => $args['name'], 'parent' => 0,
-        ]));
-
-        // Simulate user approval followed by the second authenticated tool call.
-        $confirmed = $args + ['confirmation_token' => $pending['confirmation_token']];
-        $created = $method->invoke($server, 'create_category', $confirmed, [], $identity, $access);
-        $this->assertSame('MCP Pending Approval Test', $created['name']);
+        $args = ['name' => 'MCP Direct Write Test', 'parentid' => 0];
+        $created = $method->invoke(new mcp_server('write'), 'create_category',
+            $args, [], $identity, 'test-access-token');
+        $this->assertSame($args['name'], $created['name']);
         $this->assertTrue($DB->record_exists('course_categories', ['id' => $created['id']]));
     }
     /**
      * WRITE previews, confirmation hashes and persisted text use normalized hyphens.
      */
-    public function test_write_replaces_em_dash_before_preview_and_execution(): void {
+    public function test_write_replaces_em_dash_before_execution(): void {
         global $DB;
-
         $this->resetAfterTest();
         $this->setAdminUser();
         $identity = new authenticated_identity((int)get_admin()->id, 'test', ['mcp:write']);
-        $server = new mcp_server('write');
         $method = new ReflectionMethod(mcp_server::class, 'call_tool');
         $args = ['name' => 'MCP — Typography test', 'parentid' => 0];
-        $access = 'test-typography-token';
-
-        $pending = $method->invoke($server, 'create_category', $args, [], $identity, $access);
-        $this->assertTrue($pending['confirmation_required']);
-        $this->assertSame('MCP - Typography test', $pending['preview']['name']);
-        $this->assertFalse($DB->record_exists('course_categories', [
-            'name' => 'MCP - Typography test', 'parent' => 0,
-        ]));
-
-        // Even a repeated request with the original em dash resolves to the approved content.
-        $created = $method->invoke($server, 'create_category',
-            $args + ['confirmation_token' => $pending['confirmation_token']], [], $identity, $access);
+        $created = $method->invoke(new mcp_server('write'), 'create_category',
+            $args, [], $identity, 'test-typography-token');
         $this->assertSame('MCP - Typography test', $created['name']);
         $this->assertTrue($DB->record_exists('course_categories', [
             'name' => 'MCP - Typography test', 'parent' => 0,
@@ -103,37 +76,25 @@ final class confirmation_flow_test extends advanced_testcase {
      *
      * @return void
      */
-    public function test_unknown_token_is_rejected_without_consuming_real_approval(): void {
+    public function test_destructive_write_still_requires_confirmation(): void {
         global $DB;
-
         $this->resetAfterTest();
         $this->setAdminUser();
-        $identity = new authenticated_identity((int)get_admin()->id, "test", ["mcp:write"]);
-        $server = new mcp_server("write");
-        $method = new ReflectionMethod(mcp_server::class, "call_tool");
-        $args = ["name" => "MCP Unknown Token Regression", "parentid" => 0];
-        $access = "test-token-approval";
-
-        $pending = $method->invoke($server, "create_category", $args, [], $identity, $access);
-        $this->assertTrue($pending["confirmation_required"]);
-        $this->assertFalse($DB->record_exists("course_categories", ["name" => $args["name"]]));
-
+        $identity = new authenticated_identity((int)get_admin()->id, 'test', ['mcp:write']);
+        $method = new ReflectionMethod(mcp_server::class, 'call_tool');
+        $pending = $method->invoke(new mcp_server('write'), 'purge_all_caches',
+            [], [], $identity, 'test-token-approval');
+        $this->assertTrue($pending['confirmation_required']);
+        $this->assertSame('confirmation_pending', $pending['status']);
         try {
-            $method->invoke($server, "create_category",
-                $args + ["confirmation_token" => "mcp_confirm_nonexistent"],
-                [], $identity, $access);
-            $this->fail("An unknown confirmation token must be rejected.");
-        } catch (\local_mcp\exception\api_exception $e) {
-            $this->assertSame("confirmation_expired", $e->machinecode);
+            $method->invoke(new mcp_server('write'), 'purge_all_caches',
+                ['confirmation_token' => 'mcp_confirm_nonexistent'],
+                [], $identity, 'test-token-approval');
+            $this->fail('Destructive writes must reject invalid confirmation tokens.');
+        } catch (\\local_mcp\\exception\\api_exception $e) {
+            $this->assertSame('confirmation_expired', $e->machinecode);
             $this->assertSame(409, $e->httpstatus);
         }
-        $this->assertFalse($DB->record_exists("course_categories", ["name" => $args["name"]]));
-
-        // A rejected token must not consume a separate, valid pending approval.
-        $created = $method->invoke($server, "create_category",
-            $args + ["confirmation_token" => $pending["confirmation_token"]],
-            [], $identity, $access);
-        $this->assertSame($args["name"], $created["name"]);
     }
 
 
