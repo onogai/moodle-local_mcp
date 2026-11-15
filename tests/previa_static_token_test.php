@@ -97,6 +97,55 @@ final class previa_static_token_test extends advanced_testcase {
         $this->assertNull(static_token::resolve($key));
     }
 
+    public function test_invalid_or_duplicate_scopes_disable_authentication(): void {
+        $key = $this->configure();
+        putenv('PREVIA_MCP_STATIC_SCOPES=mcp:read unexpected');
+        $this->assertNull(static_token::resolve($key));
+        putenv('PREVIA_MCP_STATIC_SCOPES=mcp:read mcp:read');
+        $this->assertNull(static_token::resolve($key));
+    }
+
+    public function test_resolver_accepts_configured_bearer_and_rejects_wrong_one(): void {
+        $key = $this->configure();
+        $identity = token_resolver::from_bearer('Bearer ' . $key);
+        $this->assertSame(42, $identity->userid);
+        $this->assertSame('static', $identity->type);
+        try {
+            token_resolver::from_bearer('Bearer invalid_static_key');
+            $this->fail('Wrong static token must not authenticate.');
+        } catch (api_exception $e) {
+            $this->assertSame(401, $e->httpstatus);
+        }
+    }
+
+    public function test_http_transport_is_opt_in_for_mcp_only(): void {
+        global $CFG;
+        $originalroot = $CFG->wwwroot;
+        $previoushttp = getenv('PREVIA_MCP_ALLOW_HTTP');
+        try {
+            $CFG->wwwroot = 'http://192.168.1.10:8095';
+            putenv('PREVIA_MCP_ALLOW_HTTP=1');
+            transport::require_secure(true);
+            try {
+                transport::require_secure(false);
+                $this->fail('OAuth must not inherit the MCP HTTP exception.');
+            } catch (api_exception $e) {
+                $this->assertSame('https_required', $e->machinecode);
+            }
+            putenv('PREVIA_MCP_ALLOW_HTTP=0');
+            try {
+                transport::require_secure(true);
+                $this->fail('MCP HTTP must be rejected without explicit opt-in.');
+            } catch (api_exception $e) {
+                $this->assertSame('https_required', $e->machinecode);
+            }
+        } finally {
+            $CFG->wwwroot = $originalroot;
+            putenv($previoushttp === false ? 'PREVIA_MCP_ALLOW_HTTP' :
+                'PREVIA_MCP_ALLOW_HTTP=' . $previoushttp);
+        }
+    }
+
     public function test_oauth_token_namespace_is_not_accepted(): void {
         $this->configure();
         $this->assertNull(static_token::resolve('mcp_at_example'));
