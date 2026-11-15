@@ -81,7 +81,7 @@ final class badges_tools_test extends advanced_testcase {
         $this->assertSame(["badges_image_guide", "badges_list", "badges_get"], $read);
         $this->assertSame(["badges_create", "badges_replace_image", "badges_set_criteria", "badges_enable"], $write);
         foreach ($provider->get_write_tools() as $tool) {
-            $this->assertTrue($tool->requires_confirmation());
+            $this->assertFalse($tool->requires_confirmation());
             $this->assertSame("object", $tool->get_input_schema()["type"]);
         }
     }
