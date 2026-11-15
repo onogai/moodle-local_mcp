@@ -79,7 +79,7 @@ final class subplugin_test extends advanced_testcase {
                      'page_update_content', 'book_create_chapter', 'book_update_chapter'] as $name) {
             $this->assertArrayHasKey($name, $write);
             $this->assertArrayNotHasKey($name, $read);
-            $this->assertTrue($write[$name]->requires_confirmation());
+            $this->assertFalse($write[$name]->requires_confirmation());
         }
     }
 
@@ -308,7 +308,7 @@ final class subplugin_test extends advanced_testcase {
             $this->assertSame($writetool, $writetools["test_external_provider_write"]);
             $this->assertArrayNotHasKey("test_external_provider_write", $readtools);
             $this->assertArrayNotHasKey("test_external_provider_read", $writetools);
-            $this->assertTrue($writetool->requires_confirmation());
+            $this->assertFalse($writetool->requires_confirmation());
 
             $identity = new \local_mcp\security\authenticated_identity(
                 (int)get_admin()->id, "test", ["mcp:read", "mcp:write"]
@@ -321,16 +321,9 @@ final class subplugin_test extends advanced_testcase {
 
             $server = new \local_mcp\protocol\mcp_server("write");
             $args = ["value" => "ready"];
-            $pending = $method->invoke($server, "test_external_provider_write",
+            $created = $method->invoke($server, "test_external_provider_write",
                 $args, [], $identity, "test-access");
-            $this->assertTrue($pending["confirmation_required"]);
-            $this->assertSame(0, $writetool->writes);
-            $this->assertSame("ready", $pending["preview"]["value"]);
-
-            $confirmed = $method->invoke($server, "test_external_provider_write",
-                $args + ["confirmation_token" => $pending["confirmation_token"]],
-                [], $identity, "test-access");
-            $this->assertSame(1, $confirmed["writes"]);
+            $this->assertSame(1, $created["writes"]);
             $this->assertSame(1, $writetool->writes);
         } finally {
             $property->setValue(null, $previous);

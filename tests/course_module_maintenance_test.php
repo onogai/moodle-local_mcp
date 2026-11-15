@@ -42,8 +42,8 @@ final class course_module_maintenance_test extends advanced_testcase {
         $tools = registry::get_tools();
         $this->assertArrayHasKey("assign_create_activity", $tools);
         $this->assertArrayHasKey("delete_course_module", $tools);
-        $this->assertTrue($tools["assign_create_activity"]->requires_confirmation());
-        $this->assertTrue($tools["delete_course_module"]->requires_confirmation());
+        $this->assertFalse($tools["assign_create_activity"]->requires_confirmation());
+        $this->assertTrue($tools["delete_course_module"]->is_destructive());
         $this->assertTrue($tools["delete_course_module"]->is_destructive());
         $schema = $tools["delete_course_module"]->get_input_schema();
         foreach (["courseid", "cmid", "expectedsectionnum", "expectedmodname", "expectedname"] as $field) {

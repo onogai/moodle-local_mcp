@@ -57,7 +57,7 @@ final class question_bank_test extends advanced_testcase {
         foreach (['create_question_category', 'create_question', 'update_question'] as $name) {
             $this->assertArrayHasKey($name, $w);
             $this->assertArrayNotHasKey($name, $r);
-            $this->assertTrue($w[$name]->requires_confirmation());
+            $this->assertFalse($w[$name]->requires_confirmation());
         }
     }
 

@@ -57,6 +57,7 @@ final class provider implements read_provider_interface, write_provider_interfac
         return [
             new \mcptool_quiz\write\create_activity(),
             new \mcptool_quiz\write\add_question(),
+            new \mcptool_quiz\write\add_questions(),
             new \mcptool_quiz\write\update_activity(),
             new \mcptool_quiz\write\remove_question(),
             new \mcptool_quiz\write\reorder_questions(),

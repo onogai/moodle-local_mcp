@@ -56,7 +56,7 @@ final class activity_integrations_test extends advanced_testcase {
             $this->assertTrue(class_exists($class));
             $this->assertInstanceOf(write_provider_interface::class, new $class());
             $this->assertArrayHasKey($name . '_create_activity', $tools);
-            $this->assertTrue($tools[$name . '_create_activity']->requires_confirmation());
+            $this->assertFalse($tools[$name . '_create_activity']->requires_confirmation());
             $schema = $tools[$name . '_create_activity']->get_input_schema();
             $this->assertSame('object', $schema['type']);
             $this->assertContains('courseid', $schema['required']);

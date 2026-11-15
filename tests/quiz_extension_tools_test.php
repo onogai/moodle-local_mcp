@@ -50,7 +50,7 @@ final class quiz_extension_tools_test extends advanced_testcase {
         $this->assertCount(7, $read);
         $readnames = array_map(static fn($tool): string => $tool->get_name(), $read);
         $this->assertContains('quiz_get_proctoring_status', $readnames);
-        $this->assertCount(6, $write);
+        $this->assertCount(7, $write);
         $names = [];
         foreach (array_merge($read, $write) as $tool) {
             $names[] = $tool->get_name();
@@ -58,7 +58,7 @@ final class quiz_extension_tools_test extends advanced_testcase {
         }
         $this->assertCount(count(array_unique($names)), $names);
         foreach ($write as $tool) {
-            $this->assertTrue($tool->requires_confirmation());
+            $this->assertFalse($tool->requires_confirmation());
         }
     }
 

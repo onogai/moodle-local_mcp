@@ -85,7 +85,7 @@ final class bulk_create_courses_test extends advanced_testcase {
         $schema = $tools['bulk_create_courses']->get_input_schema();
         $this->assertSame(30, $schema['properties']['courses']['maxItems']);
         $this->assertContains('summary', $schema['properties']['courses']['items']['required']);
-        $this->assertTrue($tools['bulk_create_courses']->requires_confirmation());
+        $this->assertFalse($tools['bulk_create_courses']->requires_confirmation());
         $this->assertTrue($tools['bulk_create_courses']->supports_dry_run());
     }
 

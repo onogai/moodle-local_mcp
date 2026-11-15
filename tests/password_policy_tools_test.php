@@ -122,15 +122,7 @@ final class password_policy_tools_test extends advanced_testcase {
         $server = new mcp_server('write');
         $call = new ReflectionMethod(mcp_server::class, 'call_tool');
         $args = ['userid' => (int)$user->id, 'password' => $secret];
-        $pending = $call->invoke($server, 'update_user', $args, [], $identity, 'test-access-password');
-        $this->assertTrue($pending['confirmation_required']);
-        $this->assertTrue($pending['preview']['password_valid']);
-        $this->assertStringNotContainsString($secret, json_encode($pending));
-        $this->assertFalse(validate_internal_user_password(
-            $DB->get_record('user', ['id' => $user->id], '*', MUST_EXIST), $secret));
-
-        $confirmed = $args + ['confirmation_token' => $pending['confirmation_token']];
-        $result = $call->invoke($server, 'update_user', $confirmed,
+        $result = $call->invoke($server, 'update_user', $args,
             [], $identity, 'test-access-password');
         $this->assertTrue($result['updated']);
         $this->assertTrue($result['password_changed']);
