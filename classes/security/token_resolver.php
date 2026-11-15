@@ -52,6 +52,16 @@ final class token_resolver {
         if (!str_starts_with($token, 'mcp_at_')) {
             self::reject('unsupported_access_token_format');
         }
+        // The internal-HTTP exception is for the static Gateway credential only.
+        // OAuth access tokens must never be accepted over this HTTP transport.
+        if (getenv('PREVIA_MCP_ALLOW_HTTP') === '1') {
+            global $CFG;
+            $parts = parse_url($CFG->wwwroot);
+            $scheme = strtolower((string)($parts['scheme'] ?? ''));
+            if ($scheme !== 'https') {
+                self::reject('oauth_requires_https');
+            }
+        }
         $prefix = secret::prefix($token);
         $hash = secret::hash($token);
         $records = $DB->get_records('local_mcp_access_token', ['prefix' => $prefix]);
