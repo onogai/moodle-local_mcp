@@ -57,7 +57,7 @@ final class course_group_settings_tools_test extends advanced_testcase {
                 "set_activity_groupmode", "set_activity_restrictions",
                 "set_activity_completion"] as $name) {
             $this->assertArrayHasKey($name, $writes);
-            $this->assertTrue($writes[$name]->requires_confirmation());
+            $this->assertFalse($writes[$name]->requires_confirmation());
             $this->assertTrue($writes[$name]->supports_dry_run());
         }
     }
