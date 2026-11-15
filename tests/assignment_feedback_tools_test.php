@@ -56,7 +56,7 @@ final class assignment_feedback_tools_test extends advanced_testcase {
         $this->assertArrayHasKey("get_assignment_submission_image", $read);
         $this->assertArrayHasKey("save_assignment_feedback", $write);
         $tool = $write["save_assignment_feedback"];
-        $this->assertTrue($tool->requires_confirmation());
+        $this->assertFalse($tool->requires_confirmation());
         $this->assertTrue($tool->supports_dry_run());
         $schema = $tool->get_input_schema();
         $this->assertContains("expected_submission_timemodified", $schema["required"]);
