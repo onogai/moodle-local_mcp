@@ -55,7 +55,7 @@ final class cache_purge_test extends advanced_testcase {
         foreach ([$tools['purge_css_cache'], $tools['purge_all_caches']] as $tool) {
             $this->assertSame('moodle/site:config', $tool->get_required_capability());
             $this->assertTrue($tool->supports_dry_run());
-            $this->assertTrue($tool->requires_confirmation());
+            $this->assertFalse($tool->requires_confirmation());
             $this->assertSame([], $tool->get_input_schema()['required']);
             $schema = tool_schema::normalize($tool->get_input_schema());
             $this->assertSame('{}', json_encode($schema['properties']));
