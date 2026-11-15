@@ -44,6 +44,11 @@ final class token_resolver {
             self::reject('missing_or_malformed_bearer');
         }
         $token = trim($m[1]);
+        // Optional homelab credential, independent of Moodle's OAuth tokens.
+        $staticidentity = static_token::resolve($token);
+        if ($staticidentity !== null) {
+            return $staticidentity;
+        }
         if (!str_starts_with($token, 'mcp_at_')) {
             self::reject('unsupported_access_token_format');
         }
