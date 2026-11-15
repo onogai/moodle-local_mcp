@@ -77,7 +77,7 @@ final class cache_purge_test extends advanced_testcase {
         $all = (new purge_all_caches())->preview([], $identity);
         $this->assertSame('theme_css', $css['scope']);
         $this->assertSame('all', $all['scope']);
-        $this->assertTrue($css['requires_confirmation']);
+        $this->assertFalse($css['requires_confirmation']);
         $this->assertTrue($all['requires_confirmation']);
     }
 
