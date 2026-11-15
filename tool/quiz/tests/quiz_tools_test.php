@@ -46,7 +46,7 @@ final class quiz_tools_test extends advanced_testcase {
         $read = $p->get_read_tools();
         $write = $p->get_write_tools();
         $this->assertCount(7, $read);
-        $this->assertCount(6, $write);
+        $this->assertCount(7, $write);
         $names = [];
         foreach (array_merge($read, $write) as $tool) {
             $names[] = $tool->get_name();
@@ -54,8 +54,9 @@ final class quiz_tools_test extends advanced_testcase {
         }
         $this->assertSameSize(array_unique($names), $names);
         $this->assertContains('quiz_get_proctoring_status', $names);
+        $this->assertContains('quiz_add_questions', $names);
         foreach ($write as $tool) {
-            $this->assertTrue($tool->requires_confirmation());
+            $this->assertFalse($tool->requires_confirmation());
         }
         $regrade = new \mcptool_quiz\write\regrade_attempt();
         $this->assertContains("expected_timemodified", $regrade->get_input_schema()["required"]);
