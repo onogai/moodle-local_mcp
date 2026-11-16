@@ -107,7 +107,11 @@ final class update_section extends base_tool {
         if (array_key_exists('visible', $arguments)) {
             $data->visible = (int)(bool)$arguments['visible'];
         }
-        course_update_section((int)$arguments['courseid'], (int)$arguments['sectionnum'], $data);
+        $courseid = (int)$arguments['courseid'];
+        $sectionnum = (int)$arguments['sectionnum'];
+        // Moodle 5.x expects a section_info object, not its numeric section number.
+        $section = get_fast_modinfo($courseid)->get_section_info($sectionnum, MUST_EXIST);
+        course_update_section($courseid, $section, $data);
         return ['updated' => true, 'courseid' => (int)$arguments['courseid'], 'sectionnum' => (int)$arguments['sectionnum']];
     }
 }
