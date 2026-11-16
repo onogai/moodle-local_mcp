@@ -98,8 +98,10 @@ final class get_quiz extends base_tool {
     public function execute(array $arguments, authenticated_identity $identity): array {
         global $DB;
         [$course, $cm] = get_course_and_cm_from_cmid((int)$arguments['cmid'], 'quiz');
-        $q = $DB->get_record('quiz', ['id' => $cm->instance], 'id,name,intro,introformat,timeopen,timeclose,timelimit,grade,attempts', MUST_EXIST);
+        $q = $DB->get_record('quiz', ['id' => $cm->instance], 'id,name,intro,introformat,timeopen,timeclose,timelimit,grade,attempts,preferredbehaviour,shuffleanswers,reviewattempt,reviewcorrectness,reviewmaxmarks,reviewmarks,reviewspecificfeedback,reviewgeneralfeedback,reviewrightanswer,reviewoverallfeedback', MUST_EXIST);
         return ['cmid' => (int)$cm->id, 'id' => (int)$q->id, 'name' => $q->name, 'intro' => untrusted_content::text(format_module_intro('quiz', $q, $cm->id)),
-            'timeopen' => (int)$q->timeopen, 'timeclose' => (int)$q->timeclose, 'timelimit' => (int)$q->timelimit, 'grade' => $q->grade, 'attempts' => (int)$q->attempts];
+            'timeopen' => (int)$q->timeopen, 'timeclose' => (int)$q->timeclose, 'timelimit' => (int)$q->timelimit, 'grade' => $q->grade, 'attempts' => (int)$q->attempts,
+            'preferredbehaviour' => $q->preferredbehaviour, 'shuffleanswers' => (bool)$q->shuffleanswers,
+            'review_options' => \mcptool_quiz\quiz_service::review_options($q)];
     }
 }
