@@ -146,4 +146,119 @@ final class quiz_tools_test extends advanced_testcase {
         $this->assertSame($old->grademethod, $new->grademethod);
         $this->assertSame($old->preferredbehaviour, $new->preferredbehaviour);
     }
+    /**
+     * Updating question behaviour, shuffle and review visibility is a partial update.
+     * Bits for other review periods, grades and unrelated quiz configuration survive.
+     */
+    public function test_quiz_behaviour_and_review_options_round_trip(): void {
+        global $DB, $USER;
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        $course = $this->getDataGenerator()->create_course();
+        $module = $this->getDataGenerator()->create_module("quiz", ["course" => $course->id]);
+        $original = $DB->get_record("quiz", ["id" => $module->id], "*", MUST_EXIST);
+        $identity = new authenticated_identity($USER->id, "test", ["mcp:read", "mcp:write"]);
+
+        $args = [
+            "cmid" => (int)$module->cmid,
+            "preferredbehaviour" => "immediatefeedback",
+            "shuffleanswers" => true,
+            "review_options" => [
+                "during" => [
+                    "correctness" => true,
+                    "specificfeedback" => true,
+                    "generalfeedback" => true,
+                    "rightanswer" => false,
+                ],
+            ],
+        ];
+
+        $before = quiz_service::update_preview($args, $identity);
+        $this->assertSame($original->preferredbehaviour, $before["before"]["preferredbehaviour"]);
+        $this->assertSame("immediatefeedback", $before["after"]["preferredbehaviour"]);
+        $this->assertTrue($before["after"]["review_options"]["during"]["correctness"]);
+
+        $result = quiz_service::update($args, $identity);
+        $this->assertTrue($result["updated"]);
+        $quiz = $DB->get_record("quiz", ["id" => $module->id], "*", MUST_EXIST);
+        $this->assertSame("immediatefeedback", $quiz->preferredbehaviour);
+        $this->assertEquals(1, $quiz->shuffleanswers);
+        $this->assertEquals($original->grademethod, $quiz->grademethod);
+        $this->assertEquals($original->grade, $quiz->grade);
+        $this->assertEquals($original->attempts, $quiz->attempts);
+        $this->assertEquals($original->reviewmarks, $quiz->reviewmarks);
+
+        $during = 0x10000;
+        $otherperiods = ~$during;
+        foreach (["reviewcorrectness", "reviewspecificfeedback", "reviewgeneralfeedback",
+                "reviewrightanswer"] as $field) {
+            $this->assertSame((int)$original->{$field} & $otherperiods,
+                (int)$quiz->{$field} & $otherperiods);
+        }
+        $review = quiz_service::review_options($quiz);
+        $this->assertTrue($review["during"]["correctness"]);
+        $this->assertTrue($review["during"]["specificfeedback"]);
+        $this->assertTrue($review["during"]["generalfeedback"]);
+        $this->assertFalse($review["during"]["rightanswer"]);
+
+        // A second update of one period must preserve the previously selected 'during' bits.
+        quiz_service::update([
+            "cmid" => $module->cmid,
+            "review_options" => ["after_close" => ["generalfeedback" => false]],
+        ], $identity);
+        $again = $DB->get_record("quiz", ["id" => $module->id], "*", MUST_EXIST);
+        $this->assertTrue(quiz_service::review_options($again)["during"]["generalfeedback"]);
+    }
+
+    /**
+     * Unsupported behaviours, malformed review options and locked 'during' flags fail before writing.
+     */
+    public function test_quiz_review_settings_invalid_input_does_not_write(): void {
+        global $DB, $USER;
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        $course = $this->getDataGenerator()->create_course();
+        $module = $this->getDataGenerator()->create_module("quiz", ["course" => $course->id]);
+        $identity = new authenticated_identity($USER->id, "test", ["mcp:write"]);
+        $original = $DB->get_record("quiz", ["id" => $module->id], "*", MUST_EXIST);
+        foreach ([
+            ["preferredbehaviour" => "definitely_not_supported"],
+            ["review_options" => ["during" => ["attempt" => false]]],
+            ["review_options" => ["during" => ["unknown_field" => true]]],
+            ["review_options" => ["during" => ["specificfeedback" => 1]]],
+        ] as $invalid) {
+            try {
+                quiz_service::update(["cmid" => $module->cmid] + $invalid, $identity);
+                $this->fail("Invalid quiz settings should be rejected.");
+            } catch (api_exception $e) {
+                $this->assertSame(400, $e->httpstatus);
+            }
+            $current = $DB->get_record("quiz", ["id" => $module->id], "*", MUST_EXIST);
+            $this->assertSame($original->preferredbehaviour, $current->preferredbehaviour);
+            $this->assertEquals($original->reviewspecificfeedback, $current->reviewspecificfeedback);
+        }
+    }
+
+    /**
+     * A read returns settings without exposing student answers or changing any quiz row.
+     */
+    public function test_get_quiz_exposes_question_behaviour_and_review_options(): void {
+        global $DB, $USER;
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        $course = $this->getDataGenerator()->create_course();
+        $module = $this->getDataGenerator()->create_module("quiz", ["course" => $course->id]);
+        $identity = new authenticated_identity($USER->id, "test", ["mcp:read"]);
+        $tool = new \local_mcp\read\tool\get_quiz();
+        $result = $tool->execute(["cmid" => $module->cmid], $identity);
+        $dbquiz = $DB->get_record("quiz", ["id" => $module->id], "*", MUST_EXIST);
+        $this->assertSame($dbquiz->preferredbehaviour, $result["preferredbehaviour"]);
+        $this->assertSame((bool)$dbquiz->shuffleanswers, $result["shuffleanswers"]);
+        $this->assertSame(quiz_service::review_options($dbquiz), $result["review_options"]);
+        $schema = (new \mcptool_quiz\write\update_activity())->get_input_schema();
+        $this->assertArrayHasKey("preferredbehaviour", $schema["properties"]);
+        $this->assertArrayHasKey("shuffleanswers", $schema["properties"]);
+        $this->assertArrayHasKey("review_options", $schema["properties"]);
+    }
+
 }
