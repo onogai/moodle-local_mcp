@@ -30,7 +30,7 @@ use local_mcp\security\authenticated_identity;
 use mcptool_quiz\quiz_service;
 
 /**
- * Update quiz name, instructions and timing without altering unrelated settings.
+ * Update quiz metadata, question behaviour, answer shuffling and review visibility without altering unrelated settings.
  */
 final class update_activity extends \local_mcp\write\tool\base_tool {
     /**
@@ -75,7 +75,59 @@ final class update_activity extends \local_mcp\write\tool\base_tool {
      * @return array Return value.
      */
     public function get_input_schema(): array {
-        return $this->object_schema(["cmid" => ["type" => "integer", "minimum" => 1], "name" => ["type" => "string", "minLength" => 1, "maxLength" => 255], "intro" => ["type" => "string", "maxLength" => 30000], "timeopen" => ["type" => "integer", "minimum" => 0], "timeclose" => ["type" => "integer", "minimum" => 0], "timelimit" => ["type" => "integer", "minimum" => 0], "attempts" => ["type" => "integer", "minimum" => 0]], ["cmid"]);
+        return $this->object_schema([
+            "cmid" => ["type" => "integer", "minimum" => 1],
+            "name" => ["type" => "string", "minLength" => 1, "maxLength" => 255],
+            "intro" => ["type" => "string", "maxLength" => 30000],
+            "timeopen" => ["type" => "integer", "minimum" => 0],
+            "timeclose" => ["type" => "integer", "minimum" => 0],
+            "timelimit" => ["type" => "integer", "minimum" => 0],
+            "attempts" => ["type" => "integer", "minimum" => 0],
+            "preferredbehaviour" => ["type" => "string", "minLength" => 1],
+            "shuffleanswers" => ["type" => "boolean"],
+            "review_options" => ["type" => "object", "properties" => [
+                "during" => ["type" => "object", "properties" => [
+                    "attempt" => ["type" => "boolean"],
+                    "correctness" => ["type" => "boolean"],
+                    "maxmarks" => ["type" => "boolean"],
+                    "marks" => ["type" => "boolean"],
+                    "specificfeedback" => ["type" => "boolean"],
+                    "generalfeedback" => ["type" => "boolean"],
+                    "rightanswer" => ["type" => "boolean"],
+                    "overallfeedback" => ["type" => "boolean"],
+                ], "additionalProperties" => false, "minProperties" => 1],
+                "immediately_after" => ["type" => "object", "properties" => [
+                    "attempt" => ["type" => "boolean"],
+                    "correctness" => ["type" => "boolean"],
+                    "maxmarks" => ["type" => "boolean"],
+                    "marks" => ["type" => "boolean"],
+                    "specificfeedback" => ["type" => "boolean"],
+                    "generalfeedback" => ["type" => "boolean"],
+                    "rightanswer" => ["type" => "boolean"],
+                    "overallfeedback" => ["type" => "boolean"],
+                ], "additionalProperties" => false, "minProperties" => 1],
+                "later_while_open" => ["type" => "object", "properties" => [
+                    "attempt" => ["type" => "boolean"],
+                    "correctness" => ["type" => "boolean"],
+                    "maxmarks" => ["type" => "boolean"],
+                    "marks" => ["type" => "boolean"],
+                    "specificfeedback" => ["type" => "boolean"],
+                    "generalfeedback" => ["type" => "boolean"],
+                    "rightanswer" => ["type" => "boolean"],
+                    "overallfeedback" => ["type" => "boolean"],
+                ], "additionalProperties" => false, "minProperties" => 1],
+                "after_close" => ["type" => "object", "properties" => [
+                    "attempt" => ["type" => "boolean"],
+                    "correctness" => ["type" => "boolean"],
+                    "maxmarks" => ["type" => "boolean"],
+                    "marks" => ["type" => "boolean"],
+                    "specificfeedback" => ["type" => "boolean"],
+                    "generalfeedback" => ["type" => "boolean"],
+                    "rightanswer" => ["type" => "boolean"],
+                    "overallfeedback" => ["type" => "boolean"],
+                ], "additionalProperties" => false, "minProperties" => 1],
+            ], "additionalProperties" => false, "minProperties" => 1],
+        ], ["cmid"]);
     }
 
     /**

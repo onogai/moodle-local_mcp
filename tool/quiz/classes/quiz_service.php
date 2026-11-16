@@ -126,54 +126,155 @@ final class quiz_service {
     }
 
     /**
-     * @return array Current and proposed quiz metadata.
+     * Quiz review visibility bits are defined by Moodle's quiz display_options API.
      */
-    public static function update_preview(array $a, authenticated_identity $identity): array {
-        [$quiz] = self::target((int)$a["cmid"], $identity, "mod/quiz:manage");
-        $fields = ["name", "intro", "timeopen", "timeclose", "timelimit", "attempts"];
-        $before = [];
-        $after = [];
-        foreach ($fields as $field) {
-            if (array_key_exists($field, $a)) {
-                $before[$field] = $quiz->{$field};
-                $after[$field] = $a[$field];
+    private const REVIEW_PHASES = [
+        'during' => 0x10000,
+        'immediately_after' => 0x01000,
+        'later_while_open' => 0x00100,
+        'after_close' => 0x00010,
+    ];
+    private const REVIEW_FIELDS = [
+        'attempt' => 'reviewattempt',
+        'correctness' => 'reviewcorrectness',
+        'maxmarks' => 'reviewmaxmarks',
+        'marks' => 'reviewmarks',
+        'specificfeedback' => 'reviewspecificfeedback',
+        'generalfeedback' => 'reviewgeneralfeedback',
+        'rightanswer' => 'reviewrightanswer',
+        'overallfeedback' => 'reviewoverallfeedback',
+    ];
+
+    /**
+     * Expose review options as booleans by phase, not opaque bitmasks.
+     */
+    public static function review_options(\stdClass $quiz): array {
+        $result = [];
+        foreach (self::REVIEW_PHASES as $phase => $bit) {
+            $result[$phase] = [];
+            foreach (self::REVIEW_FIELDS as $name => $column) {
+                $result[$phase][$name] = (bool)((int)$quiz->{$column} & $bit);
             }
         }
-        return ["cmid" => (int)$a["cmid"], "before" => $before, "after" => $after];
+        return $result;
     }
 
     /**
-     * Update selected settings, preserving unrelated quiz and module configuration.
+     * Build a partial update and validate it against Moodle's installed behaviours.
+     * Unspecified review bits and all unrelated quiz columns are preserved.
      *
-     * @return array Updated fields.
+     * @return array Tuple containing Moodle DB fields to update and public field names.
      */
-    public static function update(array $a, authenticated_identity $identity): array {
-        global $DB, $CFG;
-        [$quiz, $cm, $context] = self::target((int)$a["cmid"], $identity, "mod/quiz:manage");
-        require_once($CFG->dirroot . "/mod/quiz/locallib.php");
-        require_once($CFG->dirroot . "/mod/quiz/lib.php");
-        $fields = ["name", "intro", "timeopen", "timeclose", "timelimit", "attempts"];
+    private static function prepare_update(array $a, \stdClass $quiz): array {
+        global $CFG;
+        $fields = ["name", "intro", "timeopen", "timeclose", "timelimit", "attempts",
+            "preferredbehaviour", "shuffleanswers"];
         $changes = (object)["id" => $quiz->id, "timemodified" => time()];
         $changed = [];
         foreach ($fields as $field) {
             if (!array_key_exists($field, $a)) {
                 continue;
             }
-            $changes->{$field} = $field === "name" ? clean_param($a[$field], PARAM_TEXT)
-                : ($field === "intro" ? clean_text($a[$field], FORMAT_HTML) : (int)$a[$field]);
+            switch ($field) {
+                case "name":
+                    $value = clean_param($a[$field], PARAM_TEXT);
+                    break;
+                case "intro":
+                    $value = clean_text($a[$field], FORMAT_HTML);
+                    $changes->introformat = FORMAT_HTML;
+                    break;
+                case "preferredbehaviour":
+                    require_once($CFG->dirroot . "/question/engine/lib.php");
+                    $value = (string)$a[$field];
+                    if (!array_key_exists($value, \question_engine::get_behaviour_options(
+                            (string)$quiz->preferredbehaviour))) {
+                        throw new api_exception("invalid_question_behaviour", 400);
+                    }
+                    break;
+                case "shuffleanswers":
+                    $value = (int)(bool)$a[$field];
+                    break;
+                default:
+                    $value = (int)$a[$field];
+            }
+            $changes->{$field} = $value;
             $changed[] = $field;
+        }
+
+        if (array_key_exists("review_options", $a)) {
+            if (!is_array($a["review_options"]) || !$a["review_options"]) {
+                throw new api_exception("invalid_review_options", 400);
+            }
+            foreach ($a["review_options"] as $phase => $options) {
+                if (!isset(self::REVIEW_PHASES[$phase]) || !is_array($options) || !$options) {
+                    throw new api_exception("invalid_review_options", 400);
+                }
+                $bit = self::REVIEW_PHASES[$phase];
+                foreach ($options as $name => $enabled) {
+                    if (!isset(self::REVIEW_FIELDS[$name]) || !is_bool($enabled)) {
+                        throw new api_exception("invalid_review_options", 400);
+                    }
+                    // Moodle locks these 'during the attempt' settings in mod_form.
+                    if ($phase === "during" && in_array($name, ["attempt", "overallfeedback"], true)) {
+                        throw new api_exception("review_option_not_editable_during_attempt", 400);
+                    }
+                    $column = self::REVIEW_FIELDS[$name];
+                    $current = (int)($changes->{$column} ?? $quiz->{$column});
+                    $changes->{$column} = $enabled ? ($current | $bit) : ($current & ~$bit);
+                }
+            }
+            $changed[] = "review_options";
         }
         if (!$changed) {
             throw new api_exception("no_quiz_changes", 400);
-        }
-        if (in_array("intro", $changed, true)) {
-            $changes->introformat = FORMAT_HTML;
         }
         $open = (int)($changes->timeopen ?? $quiz->timeopen);
         $close = (int)($changes->timeclose ?? $quiz->timeclose);
         if ($open && $close && $close <= $open) {
             throw new api_exception("invalid_quiz_dates", 400);
         }
+        return [$changes, $changed];
+    }
+
+    /**
+     * Preview exactly what the update will change, including review options.
+     */
+    public static function update_preview(array $a, authenticated_identity $identity): array {
+        [$quiz] = self::target((int)$a["cmid"], $identity, "mod/quiz:manage");
+        [$changes, $fields] = self::prepare_update($a, $quiz);
+        $afterquiz = clone $quiz;
+        foreach ($changes as $key => $value) {
+            $afterquiz->{$key} = $value;
+        }
+        $before = [];
+        $after = [];
+        foreach ($fields as $field) {
+            if ($field === "review_options") {
+                $old = self::review_options($quiz);
+                $new = self::review_options($afterquiz);
+                foreach ($a["review_options"] as $phase => $options) {
+                    foreach ($options as $name => $enabled) {
+                        $before["review_options"][$phase][$name] = $old[$phase][$name];
+                        $after["review_options"][$phase][$name] = $new[$phase][$name];
+                    }
+                }
+            } else {
+                $before[$field] = $quiz->{$field};
+                $after[$field] = $afterquiz->{$field};
+            }
+        }
+        return ["cmid" => (int)$a["cmid"], "before" => $before, "after" => $after];
+    }
+
+    /**
+     * Update only specified quiz fields; preserve existing grading and all other options.
+     */
+    public static function update(array $a, authenticated_identity $identity): array {
+        global $DB, $CFG;
+        [$quiz, $cm] = self::target((int)$a["cmid"], $identity, "mod/quiz:manage");
+        require_once($CFG->dirroot . "/mod/quiz/locallib.php");
+        require_once($CFG->dirroot . "/mod/quiz/lib.php");
+        [$changes, $changed] = self::prepare_update($a, $quiz);
         $DB->update_record("quiz", $changes);
         $updated = $DB->get_record("quiz", ["id" => $quiz->id], "*", MUST_EXIST);
         quiz_update_events($updated);
